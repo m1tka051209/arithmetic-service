@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/mitka051209/arithmetic-service/agent/worker"
+	"github.com/m1tka051209/arithmetic-service/agent/worker"
 )
 
 func main() {

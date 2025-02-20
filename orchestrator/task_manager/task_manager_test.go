@@ -3,7 +3,7 @@ package task_manager
 import (
 	"testing"
 
-	"github.com/mitka051209/arithmetic-service/orchestrator/models"
+	"github.com/m1tka051209/arithmetic-service/orchestrator/models"
 	"github.com/stretchr/testify/assert"
 )
 

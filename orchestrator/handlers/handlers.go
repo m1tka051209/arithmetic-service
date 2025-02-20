@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/mitka051209/arithmetic-service/orchestrator/task_manager"
+	"github.com/m1tka051209/arithmetic-service/orchestrator/task_manager"
 )
 
 func CalculateHandler(w http.ResponseWriter, r *http.Request) {

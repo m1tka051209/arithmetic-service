@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/mitka051209/arithmetic-service/orchestrator"
+	"github.com/m1tka051209/arithmetic-service/orchestrator"
 )
 
 func main() {

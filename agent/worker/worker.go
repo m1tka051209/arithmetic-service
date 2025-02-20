@@ -3,7 +3,7 @@ package worker
 import (
 	"time"
 
-	"github.com/mitka051209/arithmetic-service/agent/client"
+	"github.com/m1tka051209/arithmetic-service/agent/client"
 )
 
 func StartWorkers(workers int) {
