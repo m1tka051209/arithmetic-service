@@ -3,10 +3,12 @@ package task_manager
 import (
 	"fmt"
 	"math/rand"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
-	
+
 	"github.com/m1tka051209/arithmetic-service/orchestrator/models"
 )
 
@@ -51,22 +53,54 @@ func (tm *TaskManager) GenerateID() string {
 }
 
 func (tm *TaskManager) ParseExpression(expr string) ([]models.Task, error) {
-	tokens := strings.Fields(expr)
-	if len(tokens)%2 == 0 || len(tokens) < 3 {
-		return nil, fmt.Errorf("invalid expression format")
-	}
+    // Удаляем все пробелы и проверяем на недопустимые символы
+    expr = strings.ReplaceAll(expr, " ", "")
+    if !regexp.MustCompile(`^[\d\.+\-*/]+$`).MatchString(expr) {
+        return nil, fmt.Errorf("выражение содержит недопустимые символы")
+    }
 
-	var tasks []models.Task
-	for i := 1; i < len(tokens); i += 2 {
-		task := models.Task{
-			ID:        tm.GenerateID(),
-			Arg1:      parseNumber(tokens[i-1]),
-			Arg2:      parseNumber(tokens[i+1]),
-			Operation: tokens[i],
-		}
-		tasks = append(tasks, task)
-	}
-	return tasks, nil
+    // Разбиваем выражение на токены с учетом операторов
+    tokens := regexp.MustCompile(`([+\-*/])`).Split(expr, -1)
+    tokens = filterEmpty(tokens)
+    
+    if len(tokens) < 3 || len(tokens)%2 == 0 {
+        return nil, fmt.Errorf("неверный формат выражения")
+    }
+
+    // Проверяем операторы
+    var tasks []models.Task
+    for i := 1; i < len(tokens); i += 2 {
+        if !isValidOperator(tokens[i]) {
+            return nil, fmt.Errorf("неподдерживаемая операция: %s", tokens[i])
+        }
+        
+        tasks = append(tasks, models.Task{
+            ID:        tm.GenerateID(),
+            Arg1:      parseNumber(tokens[i-1]),
+            Arg2:      parseNumber(tokens[i+1]),
+            Operation: tokens[i],
+        })
+    }
+    return tasks, nil
+}
+
+func isValidOperator(op string) bool {
+    return op == "+" || op == "-" || op == "*" || op == "/"
+}
+
+func filterEmpty(tokens []string) []string {
+    var result []string
+    for _, t := range tokens {
+        if t != "" {
+            result = append(result, t)
+        }
+    }
+    return result
+}
+
+func isNumber(s string) bool {
+    _, err := strconv.ParseFloat(s, 64)
+    return err == nil
 }
 
 func (tm *TaskManager) SaveExpression(id string, tasks []models.Task) {
@@ -136,4 +170,13 @@ func parseNumber(s string) float64 {
 		return 0
 	}
 	return num
+}
+
+func ValidateTasks(tasks []models.Task) error {
+    for _, task := range tasks {
+        if task.Operation == "/" && task.Arg2 == 0 {
+            return fmt.Errorf("деление на ноль в задаче %s", task.ID)
+        }
+    }
+    return nil
 }
