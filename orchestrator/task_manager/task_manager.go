@@ -111,14 +111,14 @@ func (tm *TaskManager) SaveTaskResult(taskID string, result float64) {
 }
 
 func (tm *TaskManager) GetAllExpressions() []models.Expression {
-	tm.mu.RLock()
-	defer tm.mu.RUnlock()
+    tm.mu.RLock()
+    defer tm.mu.RUnlock()
 
-	result := make([]models.Expression, 0, len(tm.expressions))
-	for _, expr := range tm.expressions {
-		result = append(result, expr)
-	}
-	return result
+    result := make([]models.Expression, 0, len(tm.expressions))
+    for _, expr := range tm.expressions {
+        result = append(result, expr)
+    }
+    return result
 }
 
 func (tm *TaskManager) GetExpressionByID(id string) (models.Expression, bool) {

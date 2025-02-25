@@ -40,6 +40,9 @@ func (h *Handlers) CalculateHandler(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) ExpressionsHandler(w http.ResponseWriter, r *http.Request) {
     expressions := h.tm.GetAllExpressions()
+    response := map[string]interface{}{
+        "expressions": expressions,
+    }
     w.Header().Set("Content-Type", "application/json")
-    json.NewEncoder(w).Encode(map[string]interface{}{"expressions": expressions})
+    json.NewEncoder(w).Encode(response)
 }
