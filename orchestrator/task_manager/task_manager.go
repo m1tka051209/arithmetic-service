@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"regexp"
-	"strconv"
+	// "strconv"
 	"strings"
 	"sync"
 	"time"
@@ -53,54 +53,71 @@ func (tm *TaskManager) GenerateID() string {
 }
 
 func (tm *TaskManager) ParseExpression(expr string) ([]models.Task, error) {
-    // Удаляем все пробелы и проверяем на недопустимые символы
+    // Удаляем все пробелы
     expr = strings.ReplaceAll(expr, " ", "")
-    if !regexp.MustCompile(`^[\d\.+\-*/]+$`).MatchString(expr) {
-        return nil, fmt.Errorf("выражение содержит недопустимые символы")
-    }
-
-    // Разбиваем выражение на токены с учетом операторов
-    tokens := regexp.MustCompile(`([+\-*/])`).Split(expr, -1)
-    tokens = filterEmpty(tokens)
     
-    if len(tokens) < 3 || len(tokens)%2 == 0 {
+    // Проверяем на валидные символы и структуру
+    if !regexp.MustCompile(`^(\d+|(\d+\.\d+))([+\-*/](\d+|(\d+\.\d+)))+$`).MatchString(expr) {
         return nil, fmt.Errorf("неверный формат выражения")
     }
 
-    // Проверяем операторы
+    // Разбиваем на токены с учетом чисел и операторов
+    re := regexp.MustCompile(`(\d+\.?\d*)|([+\-*/])`)
+    matches := re.FindAllString(expr, -1)
+    
+    if len(matches)%2 == 0 || len(matches) < 3 {
+        return nil, fmt.Errorf("неверное количество токенов")
+    }
+
     var tasks []models.Task
-    for i := 1; i < len(tokens); i += 2 {
-        if !isValidOperator(tokens[i]) {
-            return nil, fmt.Errorf("неподдерживаемая операция: %s", tokens[i])
+    for i := 1; i < len(matches); i += 2 {
+        op := matches[i]
+        if !isValidOperator(op) {
+            return nil, fmt.Errorf("неподдерживаемая операция: %s", op)
         }
-        
+
+        arg1, err := parseNumber(matches[i-1])
+        if err != nil {
+            return nil, fmt.Errorf("ошибка парсинга левого операнда: %v", err)
+        }
+
+        arg2, err := parseNumber(matches[i+1])
+        if err != nil {
+            return nil, fmt.Errorf("ошибка парсинга правого операнда: %v", err)
+        }
+
         tasks = append(tasks, models.Task{
-            ID:        tm.GenerateID(),
-            Arg1:      parseNumber(tokens[i-1]),
-            Arg2:      parseNumber(tokens[i+1]),
-            Operation: tokens[i],
+            ID:            tm.GenerateID(),
+            Arg1:          arg1,
+            Arg2:          arg2,
+            Operation:     op,
+            OperationTime: tm.operationTime[op],
+            Status:        "pending",
         })
     }
     return tasks, nil
 }
 
+func parseNumber(s string) (float64, error) {
+    num, err := strconv.ParseFloat(s, 64)
+    if err != nil {
+        return 0, fmt.Errorf("неверный формат числа: %s", s)
+    }
+    return num, nil
+}
+
 func isValidOperator(op string) bool {
-    return op == "+" || op == "-" || op == "*" || op == "/"
+	return op == "+" || op == "-" || op == "*" || op == "/"
 }
 
 func filterEmpty(tokens []string) []string {
-    var result []string
-    for _, t := range tokens {
-        if t != "" {
-            result = append(result, t)
-        }
-    }
-    return result
-}
-
-func isNumber(s string) bool {
-    _, err := strconv.ParseFloat(s, 64)
-    return err == nil
+	var result []string
+	for _, t := range tokens {
+		if t != "" {
+			result = append(result, t)
+		}
+	}
+	return result
 }
 
 func (tm *TaskManager) SaveExpression(id string, tasks []models.Task) {
@@ -113,7 +130,6 @@ func (tm *TaskManager) SaveExpression(id string, tasks []models.Task) {
 	}
 
 	for _, t := range tasks {
-		t.OperationTime = tm.operationTime[t.Operation]
 		t.Status = "pending"
 		tm.tasks[t.ID] = t
 	}
@@ -145,14 +161,14 @@ func (tm *TaskManager) SaveTaskResult(taskID string, result float64) {
 }
 
 func (tm *TaskManager) GetAllExpressions() []models.Expression {
-    tm.mu.RLock()
-    defer tm.mu.RUnlock()
+	tm.mu.RLock()
+	defer tm.mu.RUnlock()
 
-    result := make([]models.Expression, 0, len(tm.expressions))
-    for _, expr := range tm.expressions {
-        result = append(result, expr)
-    }
-    return result
+	result := make([]models.Expression, 0, len(tm.expressions))
+	for _, expr := range tm.expressions {
+		result = append(result, expr)
+	}
+	return result
 }
 
 func (tm *TaskManager) GetExpressionByID(id string) (models.Expression, bool) {
@@ -163,20 +179,20 @@ func (tm *TaskManager) GetExpressionByID(id string) (models.Expression, bool) {
 	return expr, exists
 }
 
-func parseNumber(s string) float64 {
+func parseNumber(s string) (float64, error) {
 	var num float64
 	_, err := fmt.Sscanf(s, "%f", &num)
 	if err != nil {
-		return 0
+		return 0, fmt.Errorf("неверный формат числа: %s", s)
 	}
-	return num
+	return num, nil
 }
 
 func ValidateTasks(tasks []models.Task) error {
-    for _, task := range tasks {
-        if task.Operation == "/" && task.Arg2 == 0 {
-            return fmt.Errorf("деление на ноль в задаче %s", task.ID)
-        }
-    }
-    return nil
+	for _, task := range tasks {
+		if task.Operation == "/" && task.Arg2 == 0 {
+			return fmt.Errorf("деление на ноль в задаче %s", task.ID)
+		}
+	}
+	return nil
 }
