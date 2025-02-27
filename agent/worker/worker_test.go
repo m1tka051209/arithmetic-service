@@ -6,13 +6,13 @@ import (
     "net/http"
 )
 
-type Task struct {
-    ID            string  `json:"id"`
-    Arg1          float64 `json:"arg1"`
-    Arg2          float64 `json:"arg2"`
-    Operation     string  `json:"operation"`
-    OperationTime int     `json:"operation_time"`
-}
+// type Task struct {
+//     ID            string  `json:"id"`
+//     Arg1          float64 `json:"arg1"`
+//     Arg2          float64 `json:"arg2"`
+//     Operation     string  `json:"operation"`
+//     OperationTime int     `json:"operation_time"`
+// }
 
 func FetchTask() *Task {
     resp, err := http.Get("http://localhost:8080/internal/task")

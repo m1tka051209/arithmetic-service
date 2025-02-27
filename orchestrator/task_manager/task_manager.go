@@ -9,7 +9,7 @@ import (
     "strings"
     "sync"
     "time"
-    "log"
+
     "github.com/m1tka051209/arithmetic-service/orchestrator/models"
 )
 
@@ -65,12 +65,27 @@ func (tm *TaskManager) GenerateID() string {
 func (tm *TaskManager) ParseExpression(expr string) ([]models.Task, error) {
     expr = strings.ReplaceAll(expr, " ", "")
     
+    // Разрешаем одиночное число (например, "2")
+    if matched, _ := regexp.MatchString(`^[-+]?\d+\.?\d*$`, expr); matched {
+        num, err := parseNumber(expr)
+        if err != nil {
+            return nil, err
+        }
+        return []models.Task{
+            {
+                ID:            tm.GenerateID(),
+                Arg1:          num,
+                Arg2:          0,
+                Operation:     "NOP", // Операция "нет операции"
+                OperationTime: 0,
+                Status:        "completed",
+            },
+        }, nil
+    }
+
     // Улучшенное регулярное выражение
     re := regexp.MustCompile(`(-?\d+\.?\d*)|([+*\/-])`)
     matches := re.FindAllString(expr, -1)
-
-    // Логирование токенов
-    log.Printf("Original tokens: %v", matches)
 
     // Обработка унарных операторов
     var cleaned []string
@@ -84,9 +99,6 @@ func (tm *TaskManager) ParseExpression(expr string) ([]models.Task, error) {
         }
         cleaned = append(cleaned, matches[i])
     }
-
-    // Логирование после обработки
-    log.Printf("Cleaned tokens: %v", cleaned)
 
     // Проверка количества токенов
     if len(cleaned) < 3 || len(cleaned)%2 == 0 {
@@ -110,6 +122,10 @@ func (tm *TaskManager) ParseExpression(expr string) ([]models.Task, error) {
         arg2, err := parseNumber(cleaned[i+1])
         if err != nil {
             return nil, fmt.Errorf("ошибка парсинга аргумента 2: %v", err)
+        }
+
+        if op == "/" && arg2 == 0 {
+            return nil, fmt.Errorf("деление на ноль")
         }
 
         tasks = append(tasks, models.Task{
@@ -146,7 +162,6 @@ func isNumber(s string) bool {
     return err == nil
 }
 
-// SaveExpression сохраняет выражение и связанные с ним задачи
 func (tm *TaskManager) SaveExpression(id string, tasks []models.Task) {
     tm.mu.Lock()
     defer tm.mu.Unlock()
@@ -162,7 +177,6 @@ func (tm *TaskManager) SaveExpression(id string, tasks []models.Task) {
     }
 }
 
-// GetNextTask возвращает следующую задачу для выполнения
 func (tm *TaskManager) GetNextTask() (models.Task, bool) {
     tm.mu.Lock()
     defer tm.mu.Unlock()
@@ -177,7 +191,6 @@ func (tm *TaskManager) GetNextTask() (models.Task, bool) {
     return models.Task{}, false
 }
 
-// SaveTaskResult сохраняет результат выполнения задачи
 func (tm *TaskManager) SaveTaskResult(taskID string, result float64) {
     tm.mu.Lock()
     defer tm.mu.Unlock()
@@ -189,7 +202,6 @@ func (tm *TaskManager) SaveTaskResult(taskID string, result float64) {
     }
 }
 
-// GetAllExpressions возвращает список всех выражений
 func (tm *TaskManager) GetAllExpressions() []models.Expression {
     tm.mu.RLock()
     defer tm.mu.RUnlock()
@@ -201,21 +213,10 @@ func (tm *TaskManager) GetAllExpressions() []models.Expression {
     return result
 }
 
-// GetExpressionByID возвращает выражение по его ID
 func (tm *TaskManager) GetExpressionByID(id string) (models.Expression, bool) {
     tm.mu.RLock()
     defer tm.mu.RUnlock()
 
     expr, exists := tm.expressions[id]
     return expr, exists
-}
-
-// ValidateTasks проверяет задачи на корректность
-func (tm *TaskManager) ValidateTasks(tasks []models.Task) error {
-    for _, task := range tasks {
-        if task.Operation == "/" && task.Arg2 == 0 {
-            return fmt.Errorf("деление на ноль в задаче %s", task.ID)
-        }
-    }
-    return nil
 }

@@ -1,9 +1,14 @@
 package main
 
 import (
+    // "encoding/json"
+    // "fmt"
+    // "log"
+    // "net/http"
     "os"
     "strconv"
-    
+    // "time"
+
     "github.com/m1tka051209/arithmetic-service/agent/worker"
 )
 
@@ -14,6 +19,6 @@ func main() {
     if err != nil || power < 1 {
         power = 1 // Значение по умолчанию
     }
-    
+
     worker.StartWorkers(power)
 }
