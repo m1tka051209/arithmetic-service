@@ -5,7 +5,6 @@ import (
     "log"
     "net/http"
     // "strings"
-
     "github.com/m1tka051209/arithmetic-service/orchestrator/models"
     "github.com/m1tka051209/arithmetic-service/orchestrator/task_manager"
 )
@@ -18,7 +17,7 @@ func NewHandlers(tm *task_manager.TaskManager) *Handlers {
     return &Handlers{tm: tm}
 }
 
-// CalculateHandler — добавление нового выражения
+// CalculateHandler — обработчик для POST /api/v1/calculate
 func (h *Handlers) CalculateHandler(w http.ResponseWriter, r *http.Request) {
     var req struct {
         Expression string `json:"expression"`
@@ -41,7 +40,13 @@ func (h *Handlers) CalculateHandler(w http.ResponseWriter, r *http.Request) {
     h.respondJSON(w, http.StatusCreated, map[string]string{"id": exprID})
 }
 
-// GetTaskHandler — выдача задачи агенту
+// ExpressionsHandler — обработчик для GET /api/v1/expressions
+func (h *Handlers) ExpressionsHandler(w http.ResponseWriter, r *http.Request) {
+    expressions := h.tm.GetAllExpressions()
+    h.respondJSON(w, http.StatusOK, map[string][]models.Expression{"expressions": expressions})
+}
+
+// GetTaskHandler — обработчик для GET /internal/task
 func (h *Handlers) GetTaskHandler(w http.ResponseWriter, r *http.Request) {
     task, exists := h.tm.GetNextTask()
     if !exists {
@@ -58,7 +63,7 @@ func (h *Handlers) GetTaskHandler(w http.ResponseWriter, r *http.Request) {
     h.respondJSON(w, http.StatusOK, response)
 }
 
-// SubmitResultHandler — прием результата от агента
+// SubmitResultHandler — обработчик для POST /internal/task
 func (h *Handlers) SubmitResultHandler(w http.ResponseWriter, r *http.Request) {
     var req struct {
         ID     string  `json:"id"`

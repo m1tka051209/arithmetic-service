@@ -12,6 +12,7 @@ func main() {
     tm := task_manager.NewTaskManager()
     handlers := api.NewHandlers(tm)
 
+    // Регистрация маршрутов
     http.HandleFunc("/api/v1/calculate", handlers.CalculateHandler)
     http.HandleFunc("/api/v1/expressions", handlers.ExpressionsHandler)
     http.HandleFunc("/internal/task", func(w http.ResponseWriter, r *http.Request) {

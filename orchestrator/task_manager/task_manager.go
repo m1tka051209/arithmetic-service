@@ -146,4 +146,76 @@ func isNumber(s string) bool {
     return err == nil
 }
 
-// Остальные методы (SaveExpression, GetNextTask и т.д.) остаются без изменений
+// SaveExpression сохраняет выражение и связанные с ним задачи
+func (tm *TaskManager) SaveExpression(id string, tasks []models.Task) {
+    tm.mu.Lock()
+    defer tm.mu.Unlock()
+
+    tm.expressions[id] = models.Expression{
+        ID:     id,
+        Status: "processing",
+    }
+
+    for _, t := range tasks {
+        t.Status = "pending"
+        tm.tasks[t.ID] = t
+    }
+}
+
+// GetNextTask возвращает следующую задачу для выполнения
+func (tm *TaskManager) GetNextTask() (models.Task, bool) {
+    tm.mu.Lock()
+    defer tm.mu.Unlock()
+
+    for _, task := range tm.tasks {
+        if task.Status == "pending" {
+            task.Status = "in_progress"
+            tm.tasks[task.ID] = task
+            return task, true
+        }
+    }
+    return models.Task{}, false
+}
+
+// SaveTaskResult сохраняет результат выполнения задачи
+func (tm *TaskManager) SaveTaskResult(taskID string, result float64) {
+    tm.mu.Lock()
+    defer tm.mu.Unlock()
+
+    if task, exists := tm.tasks[taskID]; exists {
+        task.Result = result
+        task.Status = "completed"
+        tm.tasks[taskID] = task
+    }
+}
+
+// GetAllExpressions возвращает список всех выражений
+func (tm *TaskManager) GetAllExpressions() []models.Expression {
+    tm.mu.RLock()
+    defer tm.mu.RUnlock()
+
+    result := make([]models.Expression, 0, len(tm.expressions))
+    for _, expr := range tm.expressions {
+        result = append(result, expr)
+    }
+    return result
+}
+
+// GetExpressionByID возвращает выражение по его ID
+func (tm *TaskManager) GetExpressionByID(id string) (models.Expression, bool) {
+    tm.mu.RLock()
+    defer tm.mu.RUnlock()
+
+    expr, exists := tm.expressions[id]
+    return expr, exists
+}
+
+// ValidateTasks проверяет задачи на корректность
+func (tm *TaskManager) ValidateTasks(tasks []models.Task) error {
+    for _, task := range tasks {
+        if task.Operation == "/" && task.Arg2 == 0 {
+            return fmt.Errorf("деление на ноль в задаче %s", task.ID)
+        }
+    }
+    return nil
+}
