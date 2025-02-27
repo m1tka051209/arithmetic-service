@@ -1,61 +1,88 @@
 package task_manager
 
 import (
-    "testing"
-    // "time"
-    
-    "github.com/m1tka051209/arithmetic-service/orchestrator/models"
-    "github.com/stretchr/testify/assert"
+	"testing"
+	// "time"
+
+	"github.com/m1tka051209/arithmetic-service/orchestrator/models"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestTaskManagement(t *testing.T) {
-    // Создаем менеджер задач
-    tm := NewTaskManager()
-
-    // Тест сохранения выражения
-    tasksToSave := []models.Task{
-        {
-            ID:        tm.GenerateID(),
-            Arg1:      2,
-            Arg2:      3,
-            Operation: "+",
-        },
-        {
-            ID:        tm.GenerateID(),
-            Arg1:      4,
-            Arg2:      5,
-            Operation: "*",
-        },
-    }
-
-    // Сохраняем выражение
-    exprID := tm.GenerateID()
-    tm.SaveExpression(exprID, tasksToSave)
-
-    // Проверяем получение задачи
-    task, exists := tm.GetNextTask()
-    assert.True(t, exists, "Задача должна существовать")
-    assert.Equal(t, "+", task.Operation, "Неверная операция")
-
-    // Сохраняем результат
-    tm.SaveTaskResult(task.ID, 5.0)
-
-    // Проверяем обновление статуса
-    updatedTask, exists := tm.tasks[task.ID]
-    assert.True(t, exists, "Задача должна существовать")
-    assert.Equal(t, "completed", updatedTask.Status, "Статус должен быть 'completed'")
-
-    // Проверяем получение следующей задачи
-    task2, exists := tm.GetNextTask()
-    assert.True(t, exists, "Вторая задача должна существовать")
-    assert.Equal(t, "*", task2.Operation, "Неверная операция второй задачи")
+func TestShuntingYard(t *testing.T) {
+	// tm := NewTaskManager()
+	expr := "2 + 3 * (4 - 1)"
+	rpn, err := shuntingYard(expr)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"2", "3", "4", "1", "-", "*", "+"}, rpn)
 }
 
-func TestParseExpression(t *testing.T) {
+func TestExpressionCompletion(t *testing.T) {
+	tm := NewTaskManager()
+	tasks, err := tm.ParseExpression("(5 + 3) * 2")
+	assert.NoError(t, err)
+
+	for _, task := range tasks {
+		tm.SaveTaskResult(task.ID, calculateTask(task))
+	}
+
+	expr, exists := tm.GetExpressionByID(tasks[0].ExpressionID)
+	assert.True(t, exists)
+	assert.Equal(t, "completed", expr.Status)
+	assert.Equal(t, 16.0, expr.Result)
+}
+
+func TestDivisionByZero(t *testing.T) {
+	tm := NewTaskManager()
+	_, err := tm.ParseExpression("5 / 0")
+	assert.ErrorContains(t, err, "division by zero")
+}
+
+// ... (остальной код теста без изменений)
+
+// Добавить мок для методов TaskManager если нужно
+func TestGetExpressionByID(t *testing.T) {
     tm := NewTaskManager()
-    tasks, err := tm.ParseExpression("2 + 3 * 4")
-    assert.NoError(t, err, "Ошибка парсинга выражения")
-    assert.Len(t, tasks, 2, "Должно быть 2 задачи")
-    assert.Equal(t, "+", tasks[0].Operation, "Первая операция должна быть '+'")
-    assert.Equal(t, "*", tasks[1].Operation, "Вторая операция должна быть '*'")
+    exprID := "test123"
+    tm.expressions[exprID] = models.Expression{
+        ID:     exprID,
+        Status: "processing",
+    }
+
+    expr, exists := tm.GetExpressionByID(exprID)
+    assert.True(t, exists)
+    assert.Equal(t, "processing", expr.Status)
+}
+
+func TestTaskManagement(t *testing.T) {
+	tm := NewTaskManager()
+	tasksToSave := []models.Task{
+		{
+			ID:        tm.GenerateID(),
+			Arg1:      2,
+			Arg2:      3,
+			Operation: "+",
+		},
+		{
+			ID:        tm.GenerateID(),
+			Arg1:      4,
+			Arg2:      5,
+			Operation: "*",
+		},
+	}
+
+	exprID := tm.GenerateID()
+	tm.SaveExpression(exprID, tasksToSave)
+
+	task, exists := tm.GetNextTask()
+	assert.True(t, exists)
+	assert.Equal(t, "+", task.Operation)
+
+	tm.SaveTaskResult(task.ID, 5.0)
+	updatedTask, exists := tm.tasks[task.ID]
+	assert.True(t, exists)
+	assert.Equal(t, "completed", updatedTask.Status)
+
+	task2, exists := tm.GetNextTask()
+	assert.True(t, exists)
+	assert.Equal(t, "*", task2.Operation)
 }

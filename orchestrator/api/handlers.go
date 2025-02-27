@@ -41,10 +41,11 @@ func (h *Handlers) CalculateHandler(w http.ResponseWriter, r *http.Request) {
     h.respondJSON(w, http.StatusCreated, map[string]string{"id": exprID})
 }
 
-// ExpressionsHandler — получение списка выражений
 func (h *Handlers) ExpressionsHandler(w http.ResponseWriter, r *http.Request) {
     expressions := h.tm.GetAllExpressions()
-    h.respondJSON(w, http.StatusOK, map[string][]models.Expression{"expressions": expressions})
+    h.respondJSON(w, http.StatusOK, map[string][]models.Expression{
+        "expressions": expressions, // Ключ "expressions" в JSON
+    })
 }
 
 // GetExpressionHandler — получение выражения по ID
