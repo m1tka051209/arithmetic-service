@@ -1,13 +1,13 @@
 package api
 
 import (
-    "encoding/json"
-    "log"
-    "net/http"
-    "strings"
+	"encoding/json"
+	"log"
+	"net/http"
+	"strings"
 
-    "github.com/m1tka051209/arithmetic-service/orchestrator/models"
-    "github.com/m1tka051209/arithmetic-service/orchestrator/task_manager"
+	"github.com/m1tka051209/arithmetic-service/orchestrator/models"
+	"github.com/m1tka051209/arithmetic-service/orchestrator/task_manager"
 )
 
 type Handlers struct {
@@ -17,6 +17,7 @@ type Handlers struct {
 func NewHandlers(tm *task_manager.TaskManager) *Handlers {
     return &Handlers{tm: tm}
 }
+
 
 // CalculateHandler — добавление нового выражения
 func (h *Handlers) CalculateHandler(w http.ResponseWriter, r *http.Request) {
@@ -59,7 +60,6 @@ func (h *Handlers) GetExpressionHandler(w http.ResponseWriter, r *http.Request) 
     h.respondJSON(w, http.StatusOK, map[string]models.Expression{"expression": expr})
 }
 
-// GetTaskHandler — выдача задачи агенту
 func (h *Handlers) GetTaskHandler(w http.ResponseWriter, r *http.Request) {
     task, exists := h.tm.GetNextTask()
     if !exists {
@@ -67,10 +67,29 @@ func (h *Handlers) GetTaskHandler(w http.ResponseWriter, r *http.Request) {
         return
     }
 
+    // Преобразуем задачу в требуемый формат ответа
     response := struct {
-        Task models.Task `json:"task"`
+        Task struct {
+            ID            string  `json:"id"`
+            Arg1          float64 `json:"arg1"`
+            Arg2          float64 `json:"arg2"`
+            Operation     string  `json:"operation"`
+            OperationTime int     `json:"operation_time"`
+        } `json:"task"`
     }{
-        Task: task,
+        Task: struct {
+            ID            string  `json:"id"`
+            Arg1          float64 `json:"arg1"`
+            Arg2          float64 `json:"arg2"`
+            Operation     string  `json:"operation"`
+            OperationTime int     `json:"operation_time"`
+        }{
+            ID:            task.ID,
+            Arg1:          task.Arg1,
+            Arg2:          task.Arg2,
+            Operation:     task.Operation,
+            OperationTime: int(task.OperationTime.Milliseconds()),
+        },
     }
 
     h.respondJSON(w, http.StatusOK, response)

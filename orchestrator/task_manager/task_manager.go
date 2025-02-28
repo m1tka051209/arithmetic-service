@@ -1,8 +1,11 @@
 package task_manager
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"math/rand"
+	"net/http"
 	"os"
 	"regexp"
 	"strconv"
@@ -11,12 +14,30 @@ import (
 	"time"
 
 	"github.com/m1tka051209/arithmetic-service/orchestrator/models"
+	// "github.com/m1tka051209/arithmetic-service/orchestrator/api"
 )
 
 const (
 	idLength = 8
 	charset  = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 )
+
+type Handlers struct {
+    tm *TaskManager
+}
+
+func (h *Handlers) respondJSON(w http.ResponseWriter, status int, data interface{}) {
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(status)
+    if err := json.NewEncoder(w).Encode(data); err != nil {
+        log.Printf("JSON encode error: %v", err)
+    }
+}
+
+// respondError отправляет JSON-ответ с ошибкой
+func (h *Handlers) respondError(w http.ResponseWriter, status int, message string) {
+    h.respondJSON(w, status, map[string]string{"error": message})
+}
 
 type TaskManager struct {
 	expressions   map[string]models.Expression
@@ -238,31 +259,65 @@ func (tm *TaskManager) GetNextTask() (models.Task, bool) {
 	return models.Task{}, false
 }
 
-func (tm *TaskManager) SaveTaskResult(taskID string, result float64) {
-	tm.mu.Lock()
-	defer tm.mu.Unlock()
+// SaveTaskResult сохраняет результат задачи и возвращает статус
+func (tm *TaskManager) SaveTaskResult(taskID string, result float64) (bool, error) {
+    tm.mu.Lock()
+    defer tm.mu.Unlock()
 
-	if task, exists := tm.tasks[taskID]; exists {
-		task.Result = result
-		task.Status = "completed"
-		tm.tasks[taskID] = task
+    task, exists := tm.tasks[taskID]
+    if !exists {
+        return false, fmt.Errorf("task not found") // 404
+    }
 
-		// Проверка завершения всех задач выражения
-		exprID := task.ExpressionID
-		allCompleted := true
-		for _, t := range tm.tasks {
-			if t.ExpressionID == exprID && t.Status != "completed" {
-				allCompleted = false
-				break
-			}
-		}
+    // Валидация результата (пример)
+    if task.Operation == "/" && task.Arg2 == 0 && result == 0 {
+        return false, fmt.Errorf("division by zero") // 422
+    }
 
-		if allCompleted {
-			expr := tm.expressions[exprID]
-			expr.Status = "completed"
-			tm.expressions[exprID] = expr
-		}
-	}
+    task.Result = result
+    task.Status = "completed"
+    tm.tasks[taskID] = task
+    return true, nil
+}
+
+func (h *Handlers) SubmitResultHandler(w http.ResponseWriter, r *http.Request) {
+    var req struct {
+        ID     string  `json:"id"`
+        Result float64 `json:"result"`
+    }
+
+    // Декодирование с проверкой ошибок
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        h.respondError(w, http.StatusUnprocessableEntity, "invalid JSON format")
+        return
+    }
+
+    // Валидация входных данных
+    if req.ID == "" {
+        h.respondError(w, http.StatusUnprocessableEntity, "id is required")
+        return
+    }
+
+    // Сохранение результата
+    success, err := h.tm.SaveTaskResult(req.ID, req.Result)
+    if err != nil {
+        switch err.Error() {
+        case "task not found":
+            h.respondError(w, http.StatusNotFound, err.Error())
+        case "division by zero":
+            h.respondError(w, http.StatusUnprocessableEntity, err.Error())
+        default:
+            h.respondError(w, http.StatusInternalServerError, "internal error")
+        }
+        return
+    }
+
+    if !success {
+        h.respondError(w, http.StatusInternalServerError, "failed to save result")
+        return
+    }
+
+    w.WriteHeader(http.StatusOK)
 }
 
 func isNumber(s string) bool {

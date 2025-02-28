@@ -1,3 +1,4 @@
+// main.go
 package main
 
 import (
@@ -27,6 +28,6 @@ func main() {
         }
     })
 
-    log.Println("🚀 Orchestrator запущен на :8080")
+    log.Println("🚀 Сервер запущен на :8080")
     log.Fatal(http.ListenAndServe(":8080", nil))
 }
